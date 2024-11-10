@@ -24,17 +24,12 @@ img_smooth_l = cv2.cvtColor(cv2.merge((h, l_smooth, s)), cv2.COLOR_HLS2RGB)
 
 retval, bin_s = cv2.threshold(s_smooth, 14, 255, cv2.THRESH_BINARY)
 
-retval, bin_h = cv2.threshold(h, 60, 255, cv2.THRESH_BINARY)
 
 B = cv2.getStructuringElement(cv2.MORPH_RECT, (40,40))
 Aclau = cv2.morphologyEx(bin_s, cv2.MORPH_CLOSE, B)
 
 B = cv2.getStructuringElement(cv2.MORPH_RECT, (50,50))
 Aop = cv2.morphologyEx(Aclau, cv2.MORPH_OPEN, B)
-
-
-kernel = np.ones((3, 3), np.uint8)
-apertura = cv2.morphologyEx(Aop, cv2.MORPH_OPEN, kernel)
 
 contours, hierarchy = cv2.findContours(Aop, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -97,7 +92,7 @@ else:
 
         imagen_recortada = moneditas[y-10:y+h, x:x+w]
 
-        plt.imshow(imagen_recortada), plt.show()
+        plt.imshow(imagen_recortada, cmap='grey'), plt.show()
 
         moneditas_cielab = cv2.cvtColor(imagen_recortada, cv2.COLOR_BGR2LAB)
 
@@ -106,16 +101,24 @@ else:
         retval, bin_h_monedita = cv2.threshold(b_monedita, 115, 255, cv2.THRESH_BINARY)
         bin_h_monedita_not = np.bitwise_not(bin_h_monedita)
 
+        plt.imshow(bin_h_monedita_not, cmap='grey'), plt.show()
+
         B_monedita = cv2.getStructuringElement(cv2.MORPH_RECT, (10,10))
         Aclau_monedita = cv2.morphologyEx(bin_h_monedita_not, cv2.MORPH_CLOSE, B_monedita)
 
+        plt.imshow(Aclau_monedita, cmap='grey'), plt.show()
+
         B_monedita = cv2.getStructuringElement(cv2.MORPH_RECT, (15,15))
         Aop_monedita = cv2.morphologyEx(Aclau_monedita, cv2.MORPH_OPEN, B_monedita)
+
+        plt.imshow(Aop_monedita, cmap='grey'), plt.show()
 
         B_monedita = cv2.getStructuringElement(cv2.MORPH_RECT, (15,15))
         clau_final = cv2.morphologyEx(Aop_monedita, cv2.MORPH_CLOSE, B_monedita)
 
         contours_monedita, hierarchy = cv2.findContours(clau_final, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+        plt.imshow(clau_final, cmap='grey'), plt.show()
 
         if len(contours_monedita) == 0:
             monedas_10_peso += 1
@@ -128,3 +131,36 @@ else:
                 monedas_peso += 1
 
 print(monedas_50, monedas_peso, monedas_10_peso)
+
+
+
+
+
+#--------------------------------------------------
+
+
+
+
+f = monedas.copy()
+esc_grises = cv2.cvtColor(f,cv2.COLOR_BGR2GRAY)
+
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(5,5))
+f_mg = cv2.morphologyEx(esc_grises, cv2.MORPH_GRADIENT, kernel,iterations=2)
+
+elpepe2=cv2.subtract(esc_grises, f_mg)
+_, binii = cv2.threshold(elpepe2, 170,255, cv2.THRESH_BINARY)
+
+B = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
+pingo = cv2.morphologyEx(elpepe2, cv2.MORPH_CLOSE, B,iterations=15)
+
+_, puntos_dados = cv2.threshold(pingo, 20,255, cv2.THRESH_BINARY)
+
+B = cv2.getStructuringElement(cv2.MORPH_RECT, (40,40))
+Aclau = cv2.morphologyEx(puntos_dados, cv2.MORPH_OPEN, B, iterations=10)
+
+B = cv2.getStructuringElement(cv2.MORPH_RECT, (40,40))
+Aclau2 = cv2.morphologyEx(Aclau, cv2.MORPH_OPEN, B, iterations=10)
+
+plt.imshow(Aclau2, cmap='gray'), plt.show()
+
+
