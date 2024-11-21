@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 from PIL import Image
 
 def detectar_monedas_y_dados(monedas):
@@ -27,7 +26,6 @@ def detectar_monedas_y_dados(monedas):
 
     # Se vuelve a suavizar la imagen, pero ahora sobre la saturación
     monedas_hls_s = cv2.blur(s, (7, 7))
-
     # Se binariza para obtener los objetos y poder trabajar con ellos
     _ , monedas_s_binarizado = cv2.threshold(monedas_hls_s, 14, 255, cv2.THRESH_BINARY)
 
@@ -83,12 +81,14 @@ def detectar_monedas_y_dados(monedas):
 
         # Se recorta la de la imagen original, el área que fue recortada usando boundingbox, agregando un pequeño margen de error
         dado_recortado = moneda_copia_dados[y-10:y+h+10, x-10:x+w+10]
+
         dado_gris = cv2.cvtColor(dado_recortado, cv2.COLOR_BGR2GRAY)
 
         # Con la imagen pasada a escala de grises, se busca suavizarla y binarizarla para así poder obtener los puntos dentro de ella
         dado_blur = cv2.GaussianBlur(dado_gris, (9, 9), 2)
+       
         _, dado_binarizado = cv2.threshold(dado_blur, 170,255, cv2.THRESH_BINARY)
-
+        
         # Se invierte la imagen, ya que para buscar los contornos de los dados, necesitamos que estos puntos sean blancos
         dado_binarizado_invertido = cv2.bitwise_not(dado_binarizado)
         dados_contornos_puntos, _ = cv2.findContours(dado_binarizado_invertido, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -203,7 +203,9 @@ def detectar_monedas_y_dados(monedas):
             else:
                 monedas_peso = len(contornos_monedas_solos)
 
-    return print(f'Hay "{monedas_50}" monedas de 50 centavos, "{monedas_peso}" monedas de 1 peso y "{monedas_10_peso}" monedas de 10 centavos\nHay {len(lista_cantidad_dados_puntos)} dados y sus respectivos valores son {lista_cantidad_dados_puntos}')
+    return print(
+        f'Hay "{monedas_50}" monedas de 50 centavos, "{monedas_peso}" monedas de 1 peso y "{monedas_10_peso}" monedas de 10 centavos\n'
+        f'Hay "{len(lista_cantidad_dados_puntos)}" dados y sus respectivos valores son:\n' + "\n".join(f"  - En el dado número {i + 1}, tiene {puntos} puntos" for i, puntos in enumerate(lista_cantidad_dados_puntos)))
 
 
 monedas = cv2.imread('monedas.jpg')
