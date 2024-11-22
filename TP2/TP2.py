@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 
-def detectar_monedas_y_dados(monedas):
+def detectar_monedas_y_dados(monedas: cv2.typing.MatLike)-> str:
     """
     Función que busca y diferencia entre los tipos de monedas de 1 peso, 50 centavos y 10 centavos, devolviendo la cantidad de cada uno
 
@@ -22,10 +22,12 @@ def detectar_monedas_y_dados(monedas):
     # Se convierte de BGR a HLS para trabajar con el canal de la saturación
     monedas_hls = cv2.cvtColor(monedas_blur, cv2.COLOR_BGR2HLS)
 
+    # Separamos los canales para quedarnos con el canal S
     _, _, s = cv2.split(monedas_hls)
 
     # Se vuelve a suavizar la imagen, pero ahora sobre la saturación
     monedas_hls_s = cv2.blur(s, (7, 7))
+
     # Se binariza para obtener los objetos y poder trabajar con ellos
     _ , monedas_s_binarizado = cv2.threshold(monedas_hls_s, 14, 255, cv2.THRESH_BINARY)
 
@@ -204,10 +206,146 @@ def detectar_monedas_y_dados(monedas):
                 monedas_peso = len(contornos_monedas_solos)
 
     return print(
-        f'Hay "{monedas_50}" monedas de 50 centavos, "{monedas_peso}" monedas de 1 peso y "{monedas_10_peso}" monedas de 10 centavos\n'
-        f'Hay "{len(lista_cantidad_dados_puntos)}" dados y sus respectivos valores son:\n' + "\n".join(f"  - En el dado número {i + 1}, tiene {puntos} puntos" for i, puntos in enumerate(lista_cantidad_dados_puntos)))
+        f'Se encontraron: "{monedas_50}" monedas de 50 centavos, "{monedas_peso}" monedas de 1 peso y "{monedas_10_peso}" monedas de 10 centavos\n'
+        f'Y tambien se encontro "{len(lista_cantidad_dados_puntos)}" dados y sus respectivos valores son:\n' + "\n".join(f"  - En el dado número {i + 1}, tiene {puntos} puntos" for i, puntos in enumerate(lista_cantidad_dados_puntos)))
 
+
+def mostrar_patentes(autos: list[cv2.typing.MatLike])-> None:
+    """
+    Procesa una lista de imágenes de autos, detecta las patentes en cada imagen, las resalta junto con los caracteres internos y las muestra.
+
+    Parameters
+    ----------
+    autos : list[cv2.typing.MatLike] -> Lista de imágenes (matrices) de autos a procesar
+
+    """
+
+    def encontrar_patente(img_placa: cv2.typing.MatLike, img_letras: cv2.typing.MatLike, img_rgb: cv2.typing.MatLike) -> cv2.typing.MatLike | str:
+        """
+        Segmenta la patente de un auto y sus letras interiores, mostrandolo en una imagen.
+
+        Parameters
+        ----------
+        img_placa : Imagen en donde se va a detectar la parte interior de color negro de la patente.
+
+        img_letras : Imagen en donde se va a detectar las letras de la patente.
+
+        img_rgb : Imagen en donde se va a segmentar la patente y las letras (RGB).
+        
+        Returns
+        ----------
+        patente_segmentada : Devuelve la imagen rgb ingresada en los parámetros pero con las patentes segmentadas.
+
+        str : Devuelve la string "Mal" en caso de no encontrar la patente.
+        """
+
+        # Se buscan, dentro de la imagen binaria, los componentes conectados
+        num_labels,_,stats,_ = cv2.connectedComponentsWithStats(img_placa, connectivity=8)
+        for componente in range(1,num_labels):
+            x,y,w,h,_ = stats[componente]
+
+            # Se validan las posibles proposiciones de la patente (formas rectangulares) y luego el posible área que esta patente pueda tener
+            if 1.8 < w/h < 4.2:
+                if 300 < w*h < 5000:
+                    recorte_placa = img_letras[y:y+h,x:x+w]
+                    letras = []
+
+                    # Se buscan los posibles caracteres dentro de la patente con componentes conectados
+                    num_labels_placa,_,stats_letras,_ = cv2.connectedComponentsWithStats(recorte_placa, connectivity=8)
+                    for num_label in range(1,num_labels_placa):
+                        x_l, y_l, w_l, h_l, _ = stats_letras[num_label]
+
+                        # Se validan las posibles proporciones de los caracteres (forma rectangular, verticalmente o casi cuadrada en casos específicos)
+                        # Luego se delimita un área mínima para descartar posible ruido como un carácter
+                        # Al final se agrega a una lista para así luego poder verificar que estos son los caracteres de una patente 
+                        if 0.37 <= w_l/h_l <= 0.9:
+                            if 30 <= w_l*h_l:
+                                letras.append(num_label)
+                    
+                    # En el caso donde se encontraron exactamente 6 caracteres, se considera como una patente válida
+                    if len(letras) == 6:
+                        # Se dibuja una línea sobre el contorno de la patente agregando cierto margen de error
+                        patente_segmentada = cv2.rectangle(img_rgb,(x-5,y-5),(x+w+5,y+h+5), (255,0,0), 1)
+
+                        # Se itera por cada carácter y se le dibuja el contorno
+                        for letra in letras:
+                            x_l, y_l, w_l, h_l, _ = stats_letras[letra]
+                            patente_segmentada = cv2.rectangle(img_rgb,(x+x_l,y+y_l),(x+x_l+w_l,y+y_l+h_l), (255,0,0), 1)
+                        return patente_segmentada
+                        
+        return 'Mal'
+
+
+    for auto in autos:
+        
+        # Se convierte la imagen a escala de grises y RGB
+        auto_rgb = cv2.cvtColor(auto, cv2.COLOR_BGR2RGB)
+        auto_gris = cv2.cvtColor(auto, cv2.COLOR_BGR2GRAY)
+
+        # Se aplican diferentes umbrales para segmentar las diferentes áreas de interés
+        threshold_bajo = cv2.threshold(auto_gris,112, 255, cv2.THRESH_BINARY)[1]
+        threshold_adaptive = cv2.adaptiveThreshold(auto_gris, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, blockSize=11, C=2)
+        threshold_bajo_adpt = cv2.bitwise_and(threshold_adaptive,threshold_adaptive, mask=threshold_bajo)
+
+        threshold_otsu = cv2.threshold(auto_gris, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
+        threshold_alto = cv2.threshold(auto_gris,145, 255, cv2.THRESH_BINARY)[1]
+        threshold_alto_otsu = cv2.bitwise_or(threshold_otsu,threshold_otsu, mask=threshold_alto)
+
+        threshold_letras = cv2.bitwise_or(threshold_alto_otsu,threshold_bajo_adpt)
+
+        # Se realiza una operación de blackhat para así poder resaltar la patente
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(30,15))
+        blackhat_img = cv2.morphologyEx(auto_gris,cv2.MORPH_BLACKHAT, kernel)
+        blackhat_patente = cv2.subtract(auto_gris,blackhat_img)
+        bin_blackhat_patente = np.array(blackhat_patente<1, dtype=np.uint8)*255
+
+        # Se busca detectar la patente
+        patente = encontrar_patente(bin_blackhat_patente, threshold_letras, auto_rgb)
+        
+        # Si se encuentra la patente, esta es devuelta con los marcos a la patente y caracteres ya pintados 
+        if type(patente) != str:
+            plt.imshow(patente), plt.show()
+            pass
+
+        # En el caso donde estos parámetros de umbralizacion y demás no funcionen, se prueba a realizar con diferentes parámetros
+        else:
+            blackhat_eq = cv2.equalizeHist(auto_gris)
+
+            kernel_2 = cv2.getStructuringElement(cv2.MORPH_RECT,(25,5))
+
+            blackhat_img_2 = cv2.morphologyEx(blackhat_eq,cv2.MORPH_BLACKHAT, kernel_2)
+
+            bin_blackhat = cv2.threshold(blackhat_img_2, 100, 255, cv2.THRESH_BINARY)[1]
+
+            bin_blackhat_rev = cv2.bitwise_not(bin_blackhat)
+
+            patente = encontrar_patente(bin_blackhat, bin_blackhat_rev, auto_rgb)
+            if type(patente) != str:
+                plt.imshow(patente), plt.show()
+                pass
+
+
+autos = []
+for i in range(1,13):
+    if i < 10:
+        autos.append(cv2.imread(f'patentes/img0{i}.png'))
+    else:
+        autos.append(cv2.imread(f'patentes/img{i}.png'))
 
 monedas = cv2.imread('monedas.jpg')
 
-detectar_monedas_y_dados(monedas)
+
+# Menu
+
+while True:
+    print('\n1: Ver problema de monedas y dados.\n\n2: Ver patentes\n\n3: Salir del código\n')
+    opcion = int(input("Ingrese su opción: "))
+    match opcion:
+        case 1:
+            detectar_monedas_y_dados(monedas)
+
+        case 2:
+            mostrar_patentes(autos)
+
+        case 3:
+            break
