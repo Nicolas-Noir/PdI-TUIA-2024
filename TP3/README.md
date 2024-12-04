@@ -4,7 +4,7 @@
 
 - *1* **clonar el repositorio**
 
-git clone https://github.com/nacho-gonz/PDI-TUIA-2024-G12.git
+git clone https://github.com/nacho-gonz/PDI-TUIA-2024-G12-TP3
 
 - *2* **Instalar las librerias necesarias**:
   - opencv: mediante pip: *pip install opencv-contrib-Python*
@@ -13,12 +13,4 @@ git clone https://github.com/nacho-gonz/PDI-TUIA-2024-G12.git
 
 ## Ejecución del código:
 
-  Escribir en la terminal: python TP1-PDI-Noir-Calvo-Gonzalez.py
-
-## Opciones
-
-- *1* : Resolver el problema de monedas y dados.
-
-- *2* : Resolver el problema de deteccion de patentes 
-
-- *3* : Salir
+  Escribir en la terminal: python TP3-PDI-Noir-Calvo-Gonzalez.py
